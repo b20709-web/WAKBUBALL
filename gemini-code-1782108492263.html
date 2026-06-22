@@ -1,0 +1,635 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>왁뿌볼(Wax Smash Ball) 공방 ASMR - 하경, 리나, 연아 팀</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; }
+        body, html { width: 100%; height: 100%; overflow: hidden; font-family: 'Malgun Gothic', sans-serif; color: #f3e9dc; }
+
+        #app-container {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background-color: #2c2520; 
+        }
+
+        #app-container::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.45);
+            z-index: 1;
+            pointer-events: none;
+        }
+
+        #guide-text { position: absolute; top: 6%; font-size: 1.3rem; letter-spacing: 1px; text-shadow: 0 3px 8px rgba(0,0,0,0.8); text-align: center; line-height: 1.6; z-index: 20; pointer-events: none; transition: opacity 0.3s; }
+
+        /* --- [UI] 설정 패널 --- */
+        #custom-panel { position: absolute; background: rgba(25, 17, 12, 0.95); border: 2px solid #a67c52; border-radius: 18px; padding: 25px; width: 400px; box-shadow: 0 25px 50px rgba(0,0,0,0.7); z-index: 30; display: flex; flex-direction: column; gap: 15px; transition: opacity 0.4s; }
+        .panel-section h3 { font-size: 0.95rem; margin-bottom: 8px; color: #ddb892; border-bottom: 1px solid #4a3525; padding-bottom: 5px; }
+        .palette-title { font-size: 0.8rem; color: #ccc; margin: 3px 0; }
+        .color-picker-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; margin-bottom: 5px; }
+        .color-dot { width: 100%; aspect-ratio: 1; border-radius: 50%; cursor: pointer; border: 2px solid transparent; transition: transform 0.2s; }
+        .color-dot.selected { border-color: #fff; transform: scale(1.15); box-shadow: 0 0 12px rgba(255,255,255,0.6); }
+        .option-group { display: flex; gap: 10px; }
+        .opt-btn { flex: 1; padding: 8px; background: #4a3525; border: 1px solid #7f5539; color: #fff; border-radius: 8px; cursor: pointer; font-size: 0.85rem; }
+        .opt-btn.selected { background: #ddb892; color: #1e120c; font-weight: bold; }
+        #start-btn { width: 100%; padding: 12px; background: #b76e79; border: none; color: white; font-size: 1rem; font-weight: bold; border-radius: 8px; cursor: pointer; }
+        #start-btn:disabled { background: #3d3d3d; color: #777; cursor: not-allowed; }
+
+        /* --- [Object] 왁뿌볼 및 컨테이너 --- */
+        #ball-wrapper {
+            position: absolute;
+            width: 80px; height: 80px;
+            z-index: 10; display: none;
+            cursor: grab;
+            transition: width 0.3s, height 0.3s;
+        }
+        #ball-wrapper:active { cursor: grabbing; }
+
+        #base-skin {
+            position: absolute; width: 100%; height: 100%; border-radius: 50%;
+            box-shadow: inset -8px -8px 20px rgba(0,0,0,0.35), 0 15px 30px rgba(0,0,0,0.4);
+            overflow: hidden; /* 이 안의 글리터 요소들이 원형 밖으로 절대 못 나가게 막음 */
+            transition: transform 0.3s;
+        }
+        .marbling-render { width: 100%; height: 100%; border-radius: 50%; transition: transform 0.3s; }
+
+        /* 👇 👇 [글리터 디자인 및 수량 조절 수정] */
+        @keyframes twinkle {
+            0%, 100% { opacity: 0.2; }
+            50% { opacity: 0.9; }
+        }
+
+        /* 큰 흰색 별 레이어 (원형 안쪽에만 렌더링되도록 .glitter-active 설정) */
+        .glitter-active::after {
+            content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23ffffff'%3E%3Cpath d='M12 2l1.8 5.4 5.4 1.8-5.4 1.8-1.8 5.4-1.8-5.4-5.4-1.8 5.4-1.8z'/%3E%3C/svg%3E");
+            background-size: 35px 35px; /* 사이즈를 키워서 격자를 넓힘 = 별 개수가 줄어들어 적당해짐 */
+            opacity: 0.6;
+            mix-blend-mode: screen;
+            pointer-events: none;
+            animation: twinkle 2.5s infinite ease-in-out;
+        }
+
+        /* 작은 금색 별 레이어 (엇박자 깜빡임) */
+        .glitter-active::before {
+            content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23ffe57f'%3E%3Cpath d='M12 4l1.2 3.8 3.8 1.2-3.8 1.2-1.2 3.8-1.2-3.8-3.8-1.2 3.8-1.2z'/%3E%3C/svg%3E");
+            background-size: 45px 45px; /* 더 넓게 배치하여 과하지 않게 조절 */
+            background-position: 15px 15px;
+            opacity: 0.5;
+            mix-blend-mode: screen;
+            pointer-events: none;
+            animation: twinkle 1.8s infinite ease-in-out -0.5s;
+        }
+        /* 👆 👆 [글리터 수정 끝] */
+
+        .thick-coat-membrane {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            border-radius: 50%; pointer-events: none;
+            background: rgba(255, 255, 255, 0.15);
+            box-shadow: inset 0 8px 20px rgba(255,255,255,0.6), inset -6px -6px 15px rgba(0,0,0,0.2);
+            mix-blend-mode: screen; z-index: 25; display: none;
+        }
+
+        /* --- [Crack & Shatter] 크랙 및 파편 --- */
+        .crack-layer {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            opacity: 0; pointer-events: none; z-index: 30;
+            transition: opacity 0.15s ease-in;
+        }
+
+        .particle {
+            position: absolute;
+            box-shadow: 0 0 10px rgba(255,255,255,0.8);
+            pointer-events: none;
+            z-index: 26;
+            transform: translate(-50%, -50%);
+        }
+
+        /* --- [Object] 왁스 냄비 --- */
+        #wax-pot-container {
+            position: absolute; bottom: -260px; width: 480px; height: 220px;
+            transition: bottom 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            z-index: 4; overflow: hidden; border-radius: 90px 90px 30px 30px;
+        }
+        #wax-pot-container.up { bottom: -40px; }
+        #wax-pot { width: 100%; height: 100%; background: linear-gradient(135deg, #3a3a3a 0%, #151515 100%); position: relative; }
+
+        #wave-canvas { position: absolute; top: 0; left: 0; width: 100%; height: 60px; z-index: 6; pointer-events: none; }
+    </style>
+</head>
+<body>
+
+    <div id="audio-bank" style="display: none;">
+        <audio id="audio-squish" src="squish.mp3"></audio>
+        <audio id="audio-bubble" src="bubble.mp3" loop></audio>
+        <audio id="audio-crack" src="crack.mp3"></audio>
+        <audio id="audio-shatter" src="shatter.mp3"></audio>
+        <audio id="audio-btn" src="Button.mp3"></audio>
+        <audio id="audio-byororong" src="Byororong.mp3"></audio>
+    </div>
+
+    <div id="app-container">
+        <div id="guide-text">원하는 색 조합과 질감을 선택하여<br>나만의 왁뿌볼 공방 체험을 시작하세요!</div>
+
+        <div id="custom-panel">
+            <div class="panel-section">
+                <h3>1. 마블링 색상 선택 (정확히 3개 클릭)</h3>
+                <div class="palette-title">🎨 부드러운 파스텔 톤</div>
+                <div class="color-picker-grid" id="pastel-grid"></div>
+                <div class="palette-title">🎨 선명한 고채도 비비드 톤</div>
+                <div class="color-picker-grid" id="vivid-grid"></div>
+            </div>
+            <div class="panel-section">
+                <h3>2. 반짝이(펄) 효과 추가</h3>
+                <div class="option-group" id="glitter-group">
+                    <button class="opt-btn selected" data-value="none">없음</button>
+                    <button class="opt-btn" data-value="gold">글리터 펄 적용</button>
+                </div>
+            </div>
+            <div class="panel-section">
+                <h3>3. 코팅 표면 질감 선택</h3>
+                <div class="option-group" id="texture-group">
+                    <button class="opt-btn selected" data-value="glossy">유리알 광택</button>
+                    <button class="opt-btn" data-value="matte">매트 무광</button>
+                    <button class="opt-btn" data-value="crystal">크리스탈 글래스</button>
+                </div>
+            </div>
+            <button id="start-btn" disabled>왁뿌볼 반죽 생성하기</button>
+        </div>
+
+        <div id="ball-wrapper">
+            <div id="base-skin">
+                <div id="base-marbling" class="marbling-render"></div>
+            </div>
+            <div id="thick-membrane" class="thick-coat-membrane"></div>
+            
+            <svg class="crack-layer crack-1" viewBox="0 0 200 200">
+                <path d="M100,0 L110,40 L150,70 L130,120 M110,40 L60,50 L30,90" fill="none" stroke="rgba(255,255,255,0.9)" stroke-width="2" />
+            </svg>
+            <svg class="crack-layer crack-2" viewBox="0 0 200 200">
+                <path d="M130,120 L160,180 M130,120 L90,160 L50,190 M60,50 L20,30 M60,50 L40,140 M150,70 L190,50 L200,90" fill="none" stroke="rgba(255,255,255,0.9)" stroke-width="3" />
+                <path d="M90,160 L120,190 M30,90 L0,110 M110,40 L130,10" fill="none" stroke="rgba(255,255,255,0.7)" stroke-width="1.5" />
+            </svg>
+            <svg class="crack-layer crack-3" viewBox="0 0 200 200">
+                <path d="M50,190 L10,150 M190,50 L160,10 M120,190 L180,150 M0,110 L40,70" fill="none" stroke="rgba(255,255,255,0.8)" stroke-width="2" />
+                <path d="M70,90 L90,110 L110,80" fill="none" stroke="rgba(255,255,255,0.6)" stroke-width="1.5" />
+                <circle cx="100" cy="100" r="40" fill="none" stroke="rgba(255,255,255,0.4)" stroke-dasharray="5,5" stroke-width="1"/>
+            </svg>
+        </div>
+
+        <div id="wax-pot-container">
+            <div id="wax-pot">
+                <canvas id="wave-canvas"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const container = document.getElementById('app-container');
+        const wrapper = document.getElementById('ball-wrapper');
+        const baseSkin = document.getElementById('base-skin');
+        const baseMarbling = document.getElementById('base-marbling');
+        const membrane = document.getElementById('thick-membrane');
+        const potContainer = document.getElementById('wax-pot-container');
+        const canvas = document.getElementById('wave-canvas');
+        const ctx = canvas.getContext('2d');
+        const guideText = document.getElementById('guide-text');
+        const startBtn = document.getElementById('start-btn');
+
+        const crack1 = document.querySelector('.crack-1');
+        const crack2 = document.querySelector('.crack-2');
+        const crack3 = document.querySelector('.crack-3'); 
+
+        const bgImages = ['배경1', '배경2', '배경3', '배경4'];
+        const randomBg = bgImages[Math.floor(Math.random() * bgImages.length)];
+        container.style.backgroundImage = `url('${randomBg}.jpg')`; 
+        container.style.backgroundSize = 'cover';
+        container.style.backgroundPosition = 'center';
+
+        const sounds = {
+            squish: document.getElementById('audio-squish'),
+            bubble: document.getElementById('audio-bubble')
+        };
+        const crackAudio = document.getElementById('audio-crack');
+        const shatterAudio = document.getElementById('audio-shatter');
+        const btnAudio = document.getElementById('audio-btn');
+        const byororongAudio = document.getElementById('audio-byororong');
+
+        let activeSoundsArray = [];
+
+        function playSound(type) {
+            let sourceAudio;
+            if (type === 'crack') sourceAudio = crackAudio;
+            else if (type === 'shatter') sourceAudio = shatterAudio;
+
+            if (sourceAudio) {
+                let soundClone = sourceAudio.cloneNode();
+                soundClone.volume = 1.0;
+                activeSoundsArray.push(soundClone);
+                soundClone.onended = () => {
+                    activeSoundsArray = activeSoundsArray.filter(a => a !== soundClone);
+                };
+                soundClone.play().catch(()=>{});
+            }
+        }
+
+        function playUiSound(audioElement) {
+            if (audioElement) {
+                let soundClone = codebase = audioElement.cloneNode();
+                soundClone.volume = 1.0;
+                soundClone.play().catch(()=>{});
+            }
+        }
+
+        function stopAllSounds() {
+            if (sounds.bubble) {
+                sounds.bubble.pause();
+                sounds.bubble.currentTime = 0;
+            }
+            if (sounds.squish) {
+                sounds.squish.pause();
+                sounds.squish.currentTime = 0;
+            }
+            activeSoundsArray.forEach(audioItem => {
+                if(audioItem) {
+                    audioItem.pause();
+                    audioItem.currentTime = 0;
+                }
+            });
+            activeSoundsArray = []; 
+        }
+
+        const pastelColors = ['#ffb7b2', '#ffdac1', '#e2f0cb', '#b5ead7', '#c7ceea', '#fbc4ab', '#ffeedb', '#e8def8', '#c0fdff', '#ffd3e8'];
+        const vividColors = ['#ff595e', '#ffca3a', '#8ac926', '#1982c4', '#6a4c93', '#ff9f1c', '#f72585', '#4cc9f0', '#3a86ff', '#06d6a0'];
+        
+        let selectedColors = [];
+        let config = { glitter: 'none', texture: 'glossy' };
+        let currentStep = 0;
+        let clickCount = 0;
+        let crackCount = 0; 
+        let isDragging = false;
+        let startY, ballY;
+
+        canvas.width = 480;
+        canvas.height = 60;
+
+        function initSetup() {
+            const createGrid = (target, list) => {
+                list.forEach(c => {
+                    const d = document.createElement('div');
+                    d.classList.add('color-dot'); d.style.backgroundColor = c;
+                    d.addEventListener('click', () => {
+                        playUiSound(btnAudio);
+                        if (d.classList.contains('selected')) {
+                            d.classList.remove('selected');
+                            selectedColors = selectedColors.filter(color => color !== c);
+                        } else if (selectedColors.length < 3) {
+                            d.classList.add('selected'); selectedColors.push(c);
+                        }
+                        startBtn.disabled = selectedColors.length !== 3;
+                    });
+                    target.appendChild(d);
+                });
+            };
+            createGrid(document.getElementById('pastel-grid'), pastelColors);
+            createGrid(document.getElementById('vivid-grid'), vividColors);
+        }
+        initSetup();
+
+        function wireBtn(id, configKey) {
+            document.getElementById(id).addEventListener('click', (e) => {
+                if (!e.target.classList.contains('opt-btn')) return;
+                
+                if (id === 'glitter-group') {
+                    if (byororongAudio) {
+                        byororongAudio.currentTime = 0; 
+                        byororongAudio.volume = 1.0; 
+                        byororongAudio.play().catch(()=>{});
+                    }
+                } else {
+                    playUiSound(btnAudio);
+                }
+
+                document.querySelectorAll(`#${id} .opt-btn`).forEach(b => b.classList.remove('selected'));
+                e.target.classList.add('selected');
+                config[configKey] = e.target.getAttribute('data-value');
+            });
+        }
+        wireBtn('glitter-group', 'glitter');
+        wireBtn('texture-group', 'texture');
+
+        startBtn.addEventListener('click', () => {
+            playUiSound(btnAudio);
+            
+            // 다음 화면으로 넘어갈 때 뾰로롱 소리 칼차단
+            if (byororongAudio) {
+                byororongAudio.pause();
+                byororongAudio.currentTime = 0;
+            }
+
+            document.getElementById('custom-panel').style.opacity = '0';
+            setTimeout(() => {
+                document.getElementById('custom-panel').style.display = 'none';
+                startWorkshop();
+            }, 400);
+        });
+
+        function startWorkshop() {
+            currentStep = 1;
+            guideText.innerHTML = "반죽 코어를 3번 눌러 단단하게 주물러 주세요.";
+            baseMarbling.style.background = `conic-gradient(${selectedColors[0]} 0%, ${selectedColors[1]} 33%, ${selectedColors[2]} 66%, ${selectedColors[0]} 100%)`;
+            
+            // 👇 [버그 해결] wrapper가 아니라 overflow: hidden이 있는 baseSkin에 클래스를 줍니다.
+            if (config.glitter === 'gold') baseSkin.classList.add('glitter-active');
+            
+            // 공 위치 정중앙 정렬 유지
+            wrapper.style.top = (window.innerHeight / 2 - 40) + 'px';
+            wrapper.style.left = (window.innerWidth / 2 - 40) + 'px';
+            wrapper.style.display = 'block';
+        }
+
+        let springs = [];
+        const numSprings = 28;
+        const targetHeight = 25;
+        const k = 0.025;
+        const damping = 0.03;
+
+        for (let i = 0; i < numSprings; i++) {
+            springs.push({ x: (canvas.width / (numSprings - 1)) * i, y: targetHeight, v: 0 });
+        }
+
+        function splash(index, speed) {
+            if (index >= 0 && index < numSprings) springs[index].v = speed;
+        }
+
+        function updateWaves() {
+            for (let i = 0; i < numSprings; i++) {
+                let loss = springs[i].y - targetHeight;
+                let accel = -k * loss - damping * springs[i].v;
+                springs[i].y += springs[i].v;
+                springs[i].v += accel;
+            }
+            let leftDeltas = new Array(numSprings).fill(0);
+            let rightDeltas = new Array(numSprings).fill(0);
+            const spread = 0.2;
+
+            for (let t = 0; t < 4; t++) {
+                for (let i = 0; i < numSprings; i++) {
+                    if (i > 0) { leftDeltas[i] = spread * (springs[i].y - springs[i - 1].y); springs[i - 1].v += leftDeltas[i]; }
+                    if (i < numSprings - 1) { rightDeltas[i] = spread * (springs[i].y - springs[i + 1].y); springs[i + 1].v += rightDeltas[i]; }
+                }
+                for (let i = 0; i < numSprings; i++) {
+                    if (i > 0) springs[i - 1].y += leftDeltas[i];
+                    if (i < numSprings - 1) springs[i + 1].y += rightDeltas[i];
+                }
+            }
+        }
+
+        function renderWaves() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = selectedColors[0] ? selectedColors[0] + "dd" : "rgba(242, 132, 130, 0.85)";
+            ctx.beginPath(); ctx.moveTo(0, canvas.height); ctx.lineTo(springs[0].x, springs[0].y);
+            for (let i = 1; i < numSprings; i++) ctx.lineTo(springs[i].x, springs[i].y);
+            ctx.lineTo(canvas.width, canvas.height); ctx.closePath(); ctx.fill();
+        }
+
+        function loop() { updateWaves(); renderWaves(); requestAnimationFrame(loop); }
+        loop();
+
+        function chipAway(mouseX, mouseY) {
+            const numChips = Math.floor(Math.random() * 4) + 3; 
+            for(let i=0; i<numChips; i++) {
+                const p = document.createElement('div');
+                p.className = 'particle';
+                p.style.left = `${mouseX}px`;
+                p.style.top = `${mouseY}px`;
+                const size = Math.random() * 12 + 4; 
+                p.style.width = `${size}px`;
+                p.style.height = `${size}px`;
+                
+                const p1 = `${Math.random()*50}% 0%`;
+                const p2 = `100% ${Math.random()*50}%`;
+                const p3 = `${Math.random()*100}% 100%`;
+                p.style.clipPath = `polygon(${p1}, ${p2}, ${p3})`;
+                
+                p.style.background = Math.random() > 0.4 ? 'rgba(255,255,255,0.9)' : `linear-gradient(135deg, #fff, ${selectedColors[0]})`;
+                container.appendChild(p);
+
+                const angle = Math.random() * Math.PI * 2;
+                const velocity = Math.random() * 8 + 3;
+                const tx = Math.cos(angle) * velocity * 10;
+                const ty = Math.sin(angle) * velocity * 10 + 200; 
+
+                p.animate([
+                    { transform: `translate(-50%, -50%) rotate(0deg) scale(1)`, opacity: 1 },
+                    { transform: `translate(calc(-50% + ${tx}px), calc(-50% + ${ty}px)) rotate(${Math.random()*720}deg) scale(0.1)`, opacity: 0 }
+                ], {
+                    duration: 600 + Math.random() * 300,
+                    easing: 'cubic-bezier(.17,.67,.83,.67)',
+                    fill: 'forwards'
+                }).onfinish = () => p.remove();
+            }
+        }
+
+        wrapper.addEventListener('mousedown', (e) => {
+            if (currentStep === 1) {
+                clickCount++;
+                if (sounds.squish) {
+                    sounds.squish.currentTime = 0;
+                    sounds.squish.play().catch(()=>{});
+                }
+                let size = 80 + (clickCount * 25);
+                wrapper.style.width = size + 'px';
+                wrapper.style.height = size + 'px';
+                baseMarbling.style.transform = `rotate(${clickCount * 120}deg)`;
+                
+                if (clickCount >= 3) {
+                    currentStep = 2;
+                    guideText.innerHTML = "왁뿌볼을 드래그해서 하단 끓는 용액 속에 퐁당 빠트리세요!";
+                    setTimeout(() => {
+                        if (sounds.squish) {
+                            sounds.squish.pause();
+                            sounds.squish.currentTime = 0;
+                        }
+                    }, 300);
+                }
+                return;
+            }
+
+            if (currentStep === 2) {
+                isDragging = true;
+                startY = e.clientY;
+                ballY = wrapper.offsetTop;
+                potContainer.classList.add('up');
+                wrapper.style.transition = 'none';
+                return;
+            }
+
+            if (currentStep === 3) {
+                crackCount++;
+                chipAway(e.clientX, e.clientY); 
+
+                if (crackCount === 1) { crack1.style.opacity = 0.4; playSound('crack'); }
+                else if (crackCount === 2) { crack1.style.opacity = 1; playSound('crack'); }
+                else if (crackCount === 3) { crack2.style.opacity = 0.4; playSound('crack'); }
+                else if (crackCount === 4) { crack2.style.opacity = 1; playSound('crack'); }
+                else if (crackCount === 5) { crack3.style.opacity = 0.4; playSound('crack'); }
+                else if (crackCount === 6) {
+                    crack3.style.opacity = 1;
+                    playSound('crack');
+                    guideText.innerHTML = "거의 다 쪼개졌어요! 마지막으로 한 번 더 쎄게!!";
+                }
+                else if (crackCount >= 7) {
+                    currentStep = 4;
+                    stopAllSounds(); 
+                    playSound('shatter'); 
+                    shatterBall();
+                }
+            }
+        });
+
+        window.addEventListener('mousemove', (e) => {
+            if (!isDragging || currentStep !== 2) return;
+            let deltaY = e.clientY - startY;
+            let newTop = ballY + deltaY;
+
+            if (newTop >= window.innerHeight / 2 - 100) {
+                wrapper.style.top = newTop + 'px';
+                
+                const potRect = potContainer.getBoundingClientRect();
+                const ballCenterY = newTop + wrapper.offsetHeight / 2;
+                const ballCenterX = wrapper.offsetLeft + wrapper.offsetWidth / 2;
+
+                if (ballCenterY >= potRect.top) {
+                    let relativeX = ballCenterX - potRect.left;
+                    let springIndex = Math.floor((relativeX / potRect.width) * numSprings);
+                    splash(springIndex, 9);
+                    splash(springIndex - 1, 6);
+                    splash(springIndex + 1, 6);
+                    if (sounds.bubble && sounds.bubble.paused) {
+                        sounds.bubble.play().catch(()=>{});
+                    }
+                }
+
+                if (ballCenterY >= potRect.top + 35) {
+                    wrapper.style.visibility = 'hidden';
+                    wrapper.setAttribute('data-coated', 'true');
+                } else {
+                    wrapper.style.visibility = 'visible';
+                }
+            }
+        });
+
+        window.addEventListener('mouseup', () => {
+            if (!isDragging) return;
+            isDragging = false;
+            
+            if (wrapper.getAttribute('data-coated') === 'true' && currentStep === 2) {
+                guideText.innerHTML = "왁스물을 듬뿍 묻히며 굳히는 중입니다... 보글보글 🫧";
+                setTimeout(() => {
+                    if (sounds.bubble) {
+                        sounds.bubble.pause();
+                        sounds.bubble.currentTime = 0;
+                    }
+                    potContainer.classList.remove('up');
+                    
+                    wrapper.style.transition = 'all 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275)';
+                    wrapper.style.top = (window.innerHeight / 2 - wrapper.offsetHeight / 2) + 'px';
+                    wrapper.style.left = (window.innerWidth / 2 - wrapper.offsetWidth / 2) + 'px';
+                    wrapper.style.visibility = 'visible';
+
+                    currentStep = 3;
+                    wrapper.style.width = (parseInt(wrapper.style.width) + 16) + 'px';
+                    wrapper.style.height = (parseInt(wrapper.style.height) + 16) + 'px';
+                    
+                    membrane.style.display = 'block';
+                    applyCoatingTextureStyle();
+                    
+                    guideText.innerHTML = "단단한 왁스 코팅이 굳었습니다.<br><b>구체를 여러 번 마구 터치하여 바사삭 부숴보세요!</b>";
+                }, 2500); 
+            } else {
+                if (sounds.bubble) {
+                    sounds.bubble.pause();
+                }
+                potContainer.classList.remove('up');
+                wrapper.style.transition = 'all 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275)';
+                wrapper.style.top = (window.innerHeight / 2 - wrapper.offsetHeight / 2) + 'px';
+                wrapper.style.left = (window.innerWidth / 2 - wrapper.offsetWidth / 2) + 'px';
+            }
+        });
+
+        function applyCoatingTextureStyle() {
+            const tex = config.texture;
+            if (tex === 'glossy') {
+                membrane.style.background = "rgba(255, 255, 255, 0.22)";
+                membrane.style.boxShadow = "inset 0 10px 25px rgba(255,255,255,0.95), inset -8px -8px 20px rgba(0,0,0,0.3)";
+            } else if (tex === 'matte') {
+                membrane.style.background = "rgba(240, 240, 240, 0.12)";
+                membrane.style.boxShadow = "inset -4px -4px 15px rgba(0,0,0,0.25)";
+            } else if (tex === 'crystal') {
+                membrane.style.background = "rgba(255, 255, 255, 0.35)";
+                membrane.style.boxShadow = "inset 0 15px 35px rgba(255,255,255,1), 0 15px 30px rgba(255,255,255,0.15)";
+            }
+        }
+
+        function shatterBall() {
+            const rect = wrapper.getBoundingClientRect(); 
+            const bCenterX = rect.left + rect.width / 2;
+            const bCenterY = rect.top + rect.height / 2;
+            wrapper.style.display = 'none'; 
+            
+            for (let i = 0; i < 150; i++) {
+                const particle = document.createElement('div');
+                particle.className = 'particle';
+                particle.style.left = `${bCenterX}px`;
+                particle.style.top = `${bCenterY}px`;
+                
+                const size = Math.random() * 40 + 10;
+                particle.style.width = `${size}px`;
+                particle.style.height = `${size}px`;
+                
+                const p1 = `${Math.random()*30}% ${Math.random()*30}%`;
+                const p2 = `${70 + Math.random()*30}% ${Math.random()*30}%`;
+                const p3 = `${Math.random()*100}% ${70 + Math.random()*30}%`;
+                particle.style.clipPath = `polygon(${p1}, ${p2}, ${p3})`;
+
+                const randomColor = selectedColors[Math.floor(Math.random() * 3)];
+                particle.style.background = `linear-gradient(135deg, rgba(255,255,255,0.95), ${randomColor})`;
+                
+                if (config.glitter === 'gold') {
+                    const g = document.createElement('div');
+                    g.style.cssText = `position:absolute; width:100%; height:100%; background-image: radial-gradient(circle, #fff 1px, transparent 1px); background-size:5px 5px; opacity:0.6; mix-blend-mode:overlay;`;
+                    particle.appendChild(g);
+                }
+                container.appendChild(particle);
+
+                const angle = Math.random() * Math.PI * 2;
+                const velocity = Math.random() * 40 + 10;
+                const tx = Math.cos(angle) * velocity * 20;
+                const ty = Math.sin(angle) * velocity * 20 + 500;
+
+                particle.animate([
+                    { transform: `translate(-50%, -50%) rotate(0deg) scale(1)`, opacity: 1 },
+                    { transform: `translate(calc(-50% + ${tx}px), calc(-50% + ${ty}px)) rotate(${Math.random()*1080}deg) scale(0.3)`, opacity: 0 }
+                ], {
+                    duration: 1000 + Math.random() * 500,
+                    easing: 'cubic-bezier(.17,.67,.83,.67)',
+                    fill: 'forwards'
+                }).onfinish = () => particle.remove();
+            }
+
+            guideText.innerHTML = "스트레스가 확 풀리네요! (잠시 후 다시 시작됩니다) 💥";
+            setTimeout(() => { stopAllSounds(); }, 1400);
+            setTimeout(() => { location.reload(); }, 3200);
+        }
+    </script>
+</body>
+</html>
